@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from models.user import User
 from database import db
-from flask_login import LoginManager # Importa LoginManager para gerenciar sessões de usuário
+from flask_login import LoginManager, login_user, current_user, logout_user, login_required # Importa LoginManager para gerenciar sessões de usuário
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = "your_secret_key" # chave secreta usada para proteger sessões e formulários
@@ -9,21 +9,38 @@ app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///database.db" #caminho que o s
 
 login_manager = LoginManager() # instancia do LoginManager
 db.init_app(app) # inicializa a extensão do banco de dados com a aplicação Flask
-login_manarger.init_app(app) # inicializa a extensão do LoginManager com a aplicação Flask
+login_manager.init_app(app) # inicializa a extensão do LoginManager com a aplicação Flask
 
 # view login
+login_manager.login_view = 'login' # define a rota de login
+
+#Session <- Conexão ativa
+@login_manager.user_loader
+def load_user(user_id):
+  return User.query.get(int(user_id)) # consulta o usuário pelo ID
 
 @app.route('/login', methods = ['POST'])
 def login():
   data = request.get_json()
-  username = data.get('username')
-  password = data.get('password')
+  username = data.get("username")
+  password = data.get("password")
   
   if username and password:
     # Login
-    pass
+    user = User.query.filter_by(username=username).first()
+    
+    if user and user.password == password:
+      login_user(user) # faz o login do usuário
+      print(current_user.is_authenticated) # verifica se o usuário está autenticado
+      return jsonify({'message': 'Login successful'})
   
   return jsonify({'message': 'Invalid credentials'}), 400
+
+@app.route('/logout', methods=['GET'])
+@login_required
+def logout():
+    logout_user()
+    return jsonify({'message': 'Logout successful'})
 
 @app.route('/hello-world', methods=['GET'])
 def hello_world():
